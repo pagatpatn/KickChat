@@ -1,7 +1,6 @@
 import asyncio
 import json
 import websockets
-import random
 import aiohttp
 import os
 
@@ -35,30 +34,27 @@ def split_message(text, limit=123):
 
 
 async def send_to_ntfy():
-    """Worker that sends queued messages to ntfy with correct delay and order."""
+    """Worker that sends queued messages to ntfy with delay between consecutive ones."""
     async with aiohttp.ClientSession() as session:
-        first_message = True
         while True:
             user, text = await message_queue.get()
 
-            if not first_message:
-                await asyncio.sleep(5)
-            else:
-                first_message = False
-
             try:
+                # Send immediately
                 await session.post(
                     NTFY_TOPIC,
                     data=text.encode("utf-8"),
                     headers={"Title": user}
                 )
+                print(f"[💬 {user}] {text}")
             except Exception:
                 pass  # suppress ntfy errors in log
+            finally:
+                message_queue.task_done()
 
-            message_queue.task_done()
-
-            if message_queue.empty():
-                first_message = True
+            # If there are still messages waiting, delay 5s before next
+            if not message_queue.empty():
+                await asyncio.sleep(5)
 
 
 async def listen_chat(chatroom_id):
@@ -95,9 +91,6 @@ async def listen_chat(chatroom_id):
                         if last_message_by_user.get(user) == text:
                             continue
                         last_message_by_user[user] = text
-
-                        # Print to console
-                        print(f"[💬 {user}] {text}")
 
                         # Split if long
                         parts = split_message(text)
