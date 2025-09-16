@@ -6,13 +6,13 @@ import aiohttp
 import os
 
 # Replace with your chatroom_id
-CHATROOM_ID = os.getenv("51286771")
+CHATROOM_ID = os.getenv("CHATROOM_ID")
 
 # Kick’s Pusher WebSocket endpoint
-WS_URL = os.getenv("wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0&flash=false")
+WS_URL = os.getenv("WS_UR")
 
 # Your ntfy topic
-NTFY_TOPIC = os.getenv("https://ntfy.sh/streamchats123")
+NTFY_TOPIC = os.getenv("NTFY_TOPIC")
 
 # Queue for ntfy
 message_queue = asyncio.Queue()
