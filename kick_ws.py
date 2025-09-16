@@ -9,7 +9,7 @@ import os
 CHATROOM_ID = os.getenv("CHATROOM_ID")
 
 # Kick’s Pusher WebSocket endpoint
-WS_URL = os.getenv("WS_UR")
+WS_URL = os.getenv("WS_URL")
 
 # Your ntfy topic
 NTFY_TOPIC = os.getenv("NTFY_TOPIC")
