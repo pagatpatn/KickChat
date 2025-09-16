@@ -34,25 +34,23 @@ def split_message(text, limit=123):
 
 
 async def send_to_ntfy():
-    """Worker that sends queued messages to ntfy with delay between consecutive ones."""
+    """Worker that sends queued messages to ntfy with strict FIFO and delay."""
     async with aiohttp.ClientSession() as session:
         while True:
             user, text = await message_queue.get()
 
             try:
-                # Send immediately
                 await session.post(
                     NTFY_TOPIC,
                     data=text.encode("utf-8"),
                     headers={"Title": user}
                 )
-                print(f"[💬 {user}] {text}")
             except Exception:
                 pass  # suppress ntfy errors in log
-            finally:
-                message_queue.task_done()
 
-            # If there are still messages waiting, delay 5s before next
+            message_queue.task_done()
+
+            # Only delay if there are more messages waiting
             if not message_queue.empty():
                 await asyncio.sleep(5)
 
