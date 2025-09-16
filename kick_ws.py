@@ -55,6 +55,64 @@ async def send_to_ntfy():
                 await asyncio.sleep(5)
 
 
+async def handle_event(event):
+    """Parse different Kick events and enqueue them for ntfy."""
+    event_type = event.get("event")
+    data = json.loads(event.get("data", "{}"))
+
+    if event_type == "App\\Events\\ChatMessageEvent":
+        user = data["sender"]["username"]
+        text = data["content"]
+
+        # Spam filter
+        if last_message_by_user.get(user) == text:
+            return
+        last_message_by_user[user] = text
+
+        # Split if long
+        parts = split_message(text)
+        for part in parts:
+            await message_queue.put((user, part))
+
+        print(f"[💬 {user}] {text}")
+
+    elif event_type == "App\\Events\\SubscriptionEvent":
+        user = data["user"]["username"]
+        months = data.get("months", 1)
+        msg = f"🎉 Subscribed for {months} month(s)!"
+        await message_queue.put((user, msg))
+        print(f"[⭐ SUB] {user} → {msg}")
+
+    elif event_type == "App\\Events\\GiftedSubEvent":
+        gifter = data["gifter"]["username"]
+        amount = data.get("gift_count", 1)
+        msg = f"🎁 Gifted {amount} sub(s)!"
+        await message_queue.put((gifter, msg))
+        print(f"[🎁 GIFT] {gifter} → {msg}")
+
+    elif event_type == "App\\Events\\TipEvent":
+        user = data["sender"]["username"]
+        amount = data.get("amount", 0)
+        currency = data.get("currency", "USD")
+        msg = f"💸 Tipped {amount} {currency}"
+        await message_queue.put((user, msg))
+        print(f"[💸 TIP] {user} → {msg}")
+
+    elif event_type == "App\\Events\\RaidEvent":
+        user = data["raider"]["username"]
+        viewers = data.get("viewer_count", 0)
+        msg = f"⚡ Raided with {viewers} viewers!"
+        await message_queue.put((user, msg))
+        print(f"[⚡ RAID] {user} → {msg}")
+
+    elif event_type == "App\\Events\\StickerEvent":
+        user = data["sender"]["username"]
+        sticker = data["sticker"]["name"]
+        msg = f"🌟 Sent sticker: {sticker}"
+        await message_queue.put((user, msg))
+        print(f"[🌟 STICKER] {user} → {msg}")
+
+
 async def listen_chat(chatroom_id):
     async for ws in websockets.connect(WS_URL, ping_interval=20, ping_timeout=20):
         try:
@@ -80,23 +138,7 @@ async def listen_chat(chatroom_id):
             async for message in ws:
                 try:
                     event = json.loads(message)
-                    if event.get("event") == "App\\Events\\ChatMessageEvent":
-                        payload = json.loads(event["data"])
-                        user = payload["sender"]["username"]
-                        text = payload["content"]
-
-                        # Spam filter: skip if same user sent same text
-                        if last_message_by_user.get(user) == text:
-                            continue
-                        last_message_by_user[user] = text
-
-                        # Split if long
-                        parts = split_message(text)
-
-                        # Queue for ntfy
-                        for part in parts:
-                            await message_queue.put((user, part))
-
+                    await handle_event(event)
                 except Exception:
                     pass  # suppress parsing errors in log
 
